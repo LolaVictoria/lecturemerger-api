@@ -3,7 +3,7 @@ import os
 from typing import List, Dict
 
 
-model = whisper.load_model("base")
+model = whisper.load_model("tiny")
 
 def transcribe_audio(audio_path: str) -> List[Dict]:
     """
