@@ -79,26 +79,29 @@ LectureMerge bridges these sources by automatically placing spoken explanations 
 
 ---
 
-# Architecture
+## Architecture
 
-```
-                    React Frontend
-                           │
-                           ▼
-                    FastAPI Backend
-                           │
-       ┌───────────────────┼───────────────────┐
-       ▼                   ▼                   ▼
- Whisper            PDF Parser        SentenceTransformer
-       │                   │                   │
-       └───────────────────┼───────────────────┘
-                           ▼
-                      SQLAlchemy ORM
-                           │
-                           ▼
-                        SQLite
-```
+```mermaid
+flowchart LR
 
+A[React Frontend] -->|REST API| B[FastAPI Backend]
+
+B --> C[(SQLite Database)]
+
+B --> D[Whisper]
+B --> E[Sentence Transformers]
+B --> F[PyMuPDF]
+
+D --> G[Transcript Chunks]
+F --> H[PDF Sections]
+
+G --> E
+H --> E
+
+E --> I[Matched Sections]
+
+I --> C
+```
 ---
 
 # Project Structure
