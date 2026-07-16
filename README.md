@@ -1,12 +1,37 @@
 # LectureMerge API
 
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.138-green)
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-In%20Development-orange)
+
 Backend service for **LectureMerge**, an AI-powered application that automatically merges a lecturer's spoken explanations into the relevant sections of lecture slides.
 
 Instead of forcing students to switch between lecture recordings and PDFs, LectureMerge creates a structured review workflow that aligns transcript segments with the appropriate slide content using semantic similarity.
 
 ---
 
-## Features
+# Table of Contents
+
+- Features
+- Motivation
+- Tech Stack
+- System Workflow
+- Architecture
+- Upload & Matching Flow
+- Project Structure
+- Database Design
+- API Endpoints
+- Engineering Decisions
+- Setup
+- API Documentation
+- Current Limitations
+- Future Improvements
+- License
+
+---
+
+# Features
 
 - Upload lecture recordings
 - Background audio transcription using Whisper
@@ -15,56 +40,25 @@ Instead of forcing students to switch between lecture recordings and PDFs, Lectu
 - Semantic matching between transcript chunks and slide sections
 - Confidence scoring for every match
 - Review API for editing and confirming matches
-- Generate structured data for merged lecture notes
+- Structured storage of transcript-to-slide relationships
+- Foundation for merged lecture note generation
 
 ---
 
-## Demo Workflow
+# Motivation
 
-```
-Upload Audio
-      │
-      ▼
-Save Recording
-      │
-      ▼
-Whisper Transcription
-      │
-      ▼
-Transcript Chunks
-      │
-      ▼
-Upload Lecture PDF
-      │
-      ▼
-Extract PDF Sections
-      │
-      ▼
-Semantic Matching
-      │
-      ▼
-Review & Confirm
-      │
-      ▼
-Merged Lecture Notes
-```
+During lectures, instructors often provide explanations, examples, and clarifications that never appear in the lecture slides.
 
----
+Students therefore have two disconnected learning resources:
 
-## Motivation
-
-During lectures, instructors often provide explanations, examples and clarifications that never appear in the lecture slides.
-
-Students therefore have two disconnected sources of information:
-
-- PDF slides
+- Lecture slides
 - Audio recordings
 
-LectureMerge bridges these sources by automatically placing spoken explanations under the correct PDF section, producing notes that combine both.
+LectureMerge bridges these sources by automatically placing spoken explanations beneath the most relevant slide section, producing a richer set of lecture notes.
 
 ---
 
-## Tech Stack
+# Tech Stack
 
 | Technology | Purpose |
 |------------|---------|
@@ -73,35 +67,130 @@ LectureMerge bridges these sources by automatically placing spoken explanations 
 | SQLite | Database |
 | OpenAI Whisper | Speech-to-text transcription |
 | PyMuPDF | PDF parsing |
-| SentenceTransformers | Semantic embeddings |
+| Sentence Transformers | Semantic embeddings |
 | scikit-learn | Cosine similarity |
-| Uvicorn | ASGI server |
+| Uvicorn | ASGI Server |
 
 ---
 
-## Architecture
+# System Workflow
+
+```mermaid
+flowchart TD
+
+A[Upload Audio] --> B[Save Recording]
+
+B --> C[Background Whisper Transcription]
+
+C --> D[Transcript Chunks]
+
+E[Upload PDF]
+
+E --> F[Extract PDF Sections]
+
+D --> G[Generate Embeddings]
+
+F --> G
+
+G --> H[Semantic Matching]
+
+H --> I[Store Matches]
+
+I --> J[Review API]
+```
+
+---
+
+# Architecture
 
 ```mermaid
 flowchart LR
 
-A[React Frontend] -->|REST API| B[FastAPI Backend]
+Client[React Frontend]
 
-B --> C[(SQLite Database)]
+API[FastAPI Backend]
 
-B --> D[Whisper]
-B --> E[Sentence Transformers]
-B --> F[PyMuPDF]
+Whisper[Whisper]
 
-D --> G[Transcript Chunks]
-F --> H[PDF Sections]
+Parser[PyMuPDF]
 
-G --> E
-H --> E
+Embedding[Sentence Transformer]
 
-E --> I[Matched Sections]
+Transcript[Transcript Chunks]
 
-I --> C
+Sections[PDF Sections]
+
+Matches[Attached Items]
+
+DB[(SQLite)]
+
+Client -->|REST API| API
+
+API --> Whisper
+
+API --> Parser
+
+Whisper --> Transcript
+
+Parser --> Sections
+
+Transcript --> Embedding
+
+Sections --> Embedding
+
+Embedding --> Matches
+
+Transcript --> DB
+
+Sections --> DB
+
+Matches --> DB
+
+API --> DB
 ```
+
+---
+
+# Upload & Matching Flow
+
+```mermaid
+sequenceDiagram
+
+participant Student
+
+participant Frontend
+
+participant API
+
+participant Whisper
+
+participant Matcher
+
+participant Database
+
+Student->>Frontend: Upload audio + PDF
+
+Frontend->>API: POST /recordings
+
+API->>Database: Save recording
+
+API->>Whisper: Background transcription
+
+Whisper->>Database: Store transcript chunks
+
+Frontend->>API: POST /merge-sessions
+
+API->>Database: Save PDF metadata
+
+API->>Matcher: Generate embeddings
+
+Matcher->>Database: Save matches
+
+Frontend->>API: GET matched sections
+
+API-->>Frontend: Return structured review data
+```
+
 ---
 
 # Project Structure
@@ -129,41 +218,41 @@ lecturemerger-api/
 
 # Database Design
 
-The application uses five core tables.
+```mermaid
+erDiagram
 
-```
-Recording
-    │
-    ├──────────────┐
-    ▼              ▼
-TranscriptChunk   MergeSession
-                       │
-                       ▼
-                  PdfSection
-                       │
-                       ▼
-                  AttachedItem
+Recording ||--o{ TranscriptChunk : contains
+
+Recording ||--o{ MergeSession : used_for
+
+MergeSession ||--o{ PdfSection : contains
+
+PdfSection ||--o{ AttachedItem : stores
+
+TranscriptChunk ||--|| AttachedItem : references
 ```
 
-### recordings
+The application uses five primary entities.
+
+### Recording
 
 Stores uploaded lecture recordings.
 
-### transcript_chunks
+### TranscriptChunk
 
 Stores timestamped transcript segments generated by Whisper.
 
-### merge_sessions
+### MergeSession
 
 Represents a merge between one recording and one uploaded PDF.
 
-### pdf_sections
+### PdfSection
 
 Stores extracted lecture slide sections.
 
-### attached_items
+### AttachedItem
 
-Stores transcript chunks attached to PDF sections during semantic matching.
+Stores transcript chunks attached to PDF sections after semantic matching.
 
 ---
 
@@ -176,7 +265,7 @@ Stores transcript chunks attached to PDF sections during semantic matching.
 | POST | `/recordings/` | Upload audio recording |
 | GET | `/recordings/` | List recordings |
 | GET | `/recordings/{id}` | Get recording |
-| GET | `/recordings/{id}/chunks` | Transcript chunks |
+| GET | `/recordings/{id}/chunks` | Retrieve transcript chunks |
 
 ---
 
@@ -184,38 +273,49 @@ Stores transcript chunks attached to PDF sections during semantic matching.
 
 | Method | Endpoint | Description |
 |---------|----------|-------------|
-| POST | `/merge-sessions/` | Upload PDF |
+| POST | `/merge-sessions/` | Upload lecture PDF |
 | POST | `/merge-sessions/{id}/match` | Run semantic matching |
-| GET | `/merge-sessions/{id}/sections` | PDF sections |
+| GET | `/merge-sessions/{id}/sections` | Retrieve parsed PDF sections |
 
 ---
 
 # Engineering Decisions
 
-## Background Transcription
+## Background Processing
 
-Transcription runs as a FastAPI background task.
+Whisper transcription is executed as a FastAPI background task.
 
-This allows uploads to return immediately instead of forcing users to wait for long-running transcription jobs.
+Returning the upload response immediately keeps the API responsive while long-running transcription continues asynchronously.
 
 ---
 
 ## Semantic Matching
 
-Keyword matching performs poorly because lecturers often explain concepts without repeating the exact slide wording.
+Keyword matching performs poorly because lecturers frequently explain concepts without repeating the exact wording found on slides.
 
-Instead, LectureMerge generates sentence embeddings for:
+Instead, LectureMerge generates sentence embeddings for transcript chunks and PDF sections using Sentence Transformers.
 
-- transcript chunks
-- PDF sections
-
-Cosine similarity is then used to determine the most relevant destination section.
+Cosine similarity is then used to determine the most semantically relevant destination section.
 
 ---
 
-## SQLAlchemy ORM
+## Modular Service Layer
 
-SQLAlchemy separates persistence logic from API endpoints and allows future migration from SQLite to PostgreSQL with minimal changes.
+Business logic is separated into dedicated service modules:
+
+- `transcription.py`
+- `pdf_parser.py`
+- `matcher.py`
+
+This keeps API routers focused on request handling while making the application easier to test and extend.
+
+---
+
+## Database Design
+
+Recordings and merge sessions are intentionally decoupled.
+
+A single lecture recording can therefore be merged against multiple versions of lecture slides without requiring retranscription.
 
 ---
 
@@ -237,13 +337,13 @@ python -m venv venv
 
 Activate it.
 
-Windows
+### Windows
 
 ```bash
 venv\Scripts\activate
 ```
 
-Mac/Linux
+### macOS/Linux
 
 ```bash
 source venv/bin/activate
@@ -261,44 +361,67 @@ Run the server.
 uvicorn main:app --reload
 ```
 
-Swagger documentation is available at
+---
+
+# API Documentation
+
+After starting the server:
+
+Swagger UI
 
 ```
 http://127.0.0.1:8000/docs
+```
+
+ReDoc
+
+```
+http://127.0.0.1:8000/redoc
 ```
 
 ---
 
 # Current Limitations
 
-The application currently loads both Whisper and SentenceTransformer directly inside the FastAPI process.
+The project currently loads both Whisper and Sentence Transformer models directly inside the FastAPI process.
 
-These models exceed the **512 MB memory limit** of Render's free tier.
+Because these models consume significant memory, deployment exceeds the **512 MB memory limit** available on many free hosting platforms.
 
-For production deployment this workload would be moved to:
+A production deployment would typically:
 
-- dedicated background workers
-- GPU inference services
-- object storage for uploaded files
-
-while keeping the API lightweight.
+- move inference into dedicated worker processes
+- replace SQLite with PostgreSQL
+- store uploaded files in cloud object storage
+- process transcription through a distributed task queue
 
 ---
 
 # Future Improvements
 
-- PostgreSQL
+## Infrastructure
+
 - Docker
+- PostgreSQL
 - Redis
 - Celery background workers
-- Authentication
-- Object storage
-- GPU inference
+- Cloud object storage
+
+## Machine Learning
+
+- Improved PDF section extraction
 - Better confidence calibration
+- Alternative embedding models
+
+## Product
+
+- Authentication
+- Collaborative note editing
 - Automatic merged PDF generation
+- Search across merged notes
+- Export to Markdown and Word
 
 ---
 
 # License
 
-MIT License.
+This project is licensed under the MIT License.
