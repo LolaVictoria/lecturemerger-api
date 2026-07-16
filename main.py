@@ -16,7 +16,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "https://lecturmerge-ui.vercel.app",  
+        "https://lecturmerge.vercel.app",  
         "*"  
     ],
     allow_credentials=True,
