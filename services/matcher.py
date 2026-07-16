@@ -3,7 +3,13 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
 
-model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+    return model
 
 def match_chunks_to_sections(chunks: list[dict], sections: list[dict]) -> list[dict]:
     if not chunks or not sections:
@@ -29,8 +35,8 @@ def match_chunks_to_sections(chunks: list[dict], sections: list[dict]) -> list[d
 
     chunk_texts = [chunk["text"] for chunk in chunks]
 
-    chunk_embeddings = model.encode(chunk_texts, show_progress_bar=False)
-    section_embeddings = model.encode(section_texts, show_progress_bar=False)
+    chunk_embeddings = get_model().encode(chunk_texts, show_progress_bar=False)
+    section_embeddings = get_model().encode(section_texts, show_progress_bar=False)
 
     similarity_matrix = cosine_similarity(chunk_embeddings, section_embeddings)
 
@@ -74,8 +80,8 @@ def match_chunks_to_sections(chunks: list[dict], sections: list[dict]) -> list[d
 
     # generate embeddings for both lists
     # encode() converts text into a numerical vector capturing its meaning
-    chunk_embeddings = model.encode(chunk_texts, show_progress_bar=False)
-    section_embeddings = model.encode(section_texts, show_progress_bar=False)
+    chunk_embeddings = get_model().encode(chunk_texts, show_progress_bar=False)
+    section_embeddings = get_model().encode(section_texts, show_progress_bar=False)
 
     # compute cosine similarity between every chunk and every section
     # result is a matrix: rows = chunks, columns = sections
