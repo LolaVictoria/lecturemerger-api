@@ -1,85 +1,301 @@
-# LectureMerge — API
+# LectureMerge API
 
-Backend for LectureMerge, a tool that automatically merges a lecturer's spoken explanations into the right sections of a course PDF.
+Backend service for **LectureMerge**, an AI-powered application that automatically merges a lecturer's spoken explanations into the relevant sections of lecture slides.
 
-## What it does
+Instead of forcing students to switch between lecture recordings and PDFs, LectureMerge creates a structured review workflow that aligns transcript segments with the appropriate slide content using semantic similarity.
 
-Students often lose the verbal elaborations a lecturer adds during class — the examples, clarifications, and context that never make it into the PDF slides. LectureMerge solves this by:
+---
 
-1. Transcribing a lecture recording using OpenAI Whisper
-2. Parsing the course PDF into sections
-3. Using semantic embeddings (sentence-transformers) to match each spoken chunk to the most relevant PDF section
-4. Exposing a review API so students can confirm, reassign, or remove matches before generating a merged document
+## Features
+
+- Upload lecture recordings
+- Background audio transcription using Whisper
+- Upload lecture PDFs
+- Automatic PDF section extraction
+- Semantic matching between transcript chunks and slide sections
+- Confidence scoring for every match
+- Review API for editing and confirming matches
+- Generate structured data for merged lecture notes
+
+---
+
+## Demo Workflow
+
+```
+Upload Audio
+      │
+      ▼
+Save Recording
+      │
+      ▼
+Whisper Transcription
+      │
+      ▼
+Transcript Chunks
+      │
+      ▼
+Upload Lecture PDF
+      │
+      ▼
+Extract PDF Sections
+      │
+      ▼
+Semantic Matching
+      │
+      ▼
+Review & Confirm
+      │
+      ▼
+Merged Lecture Notes
+```
+
+---
+
+## Motivation
+
+During lectures, instructors often provide explanations, examples and clarifications that never appear in the lecture slides.
+
+Students therefore have two disconnected sources of information:
+
+- PDF slides
+- Audio recordings
+
+LectureMerge bridges these sources by automatically placing spoken explanations under the correct PDF section, producing notes that combine both.
+
+---
 
 ## Tech Stack
 
-- **Python** + **FastAPI** — REST API
-- **OpenAI Whisper** — speech-to-text transcription
-- **PyMuPDF (fitz)** — PDF parsing and section extraction
-- **sentence-transformers** — semantic embedding and cosine similarity matching
-- **SQLite** + **SQLAlchemy** — data persistence
+| Technology | Purpose |
+|------------|---------|
+| FastAPI | REST API |
+| SQLAlchemy | ORM |
+| SQLite | Database |
+| OpenAI Whisper | Speech-to-text transcription |
+| PyMuPDF | PDF parsing |
+| SentenceTransformers | Semantic embeddings |
+| scikit-learn | Cosine similarity |
+| Uvicorn | ASGI server |
 
-lecture-merge/
-├── main.py                  # FastAPI app entry point
-├── models.py                # SQLAlchemy database models
-├── schemas.py               # Pydantic request/response schemas
-├── database.py              # Database connection setup
-├── dependencies.py          # Shared FastAPI dependencies
-├── routers/
-│   ├── recordings.py        # Audio upload and transcription endpoints
-│   └── merge_sessions.py    # PDF upload, matching, and review endpoints
-└── services/
-├── transcription.py     # Whisper transcription service
-├── pdf_parser.py        # PDF section extraction
-└── matcher.py           # Semantic matching service
+---
 
-## Database Schema
+# Architecture
 
-Five tables: `recordings`, `transcript_chunks`, `merge_sessions`, `pdf_sections`, `attached_items` — designed so recordings and merge sessions are decoupled, allowing a recording to be merged with different PDFs at different times.
-
-## Setup
-
-```bash
-# Clone the repo
-git clone https://github.com/LolaVictoria/lecturmerge-api.git
-cd lecturmerge-api
-
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate  # Windows
-source venv/bin/activate  # Mac/Linux
-
-# Install dependencies
-pip install fastapi uvicorn python-multipart sqlalchemy \
-  openai-whisper pymupdf sentence-transformers scikit-learn
-
-# Install ffmpeg (required by Whisper)
-# Windows: winget install ffmpeg --source winget
-# Mac: brew install ffmpeg
-
-# Run the server
-python -m uvicorn main:app --reload
+```
+                    React Frontend
+                           │
+                           ▼
+                    FastAPI Backend
+                           │
+       ┌───────────────────┼───────────────────┐
+       ▼                   ▼                   ▼
+ Whisper            PDF Parser        SentenceTransformer
+       │                   │                   │
+       └───────────────────┼───────────────────┘
+                           ▼
+                      SQLAlchemy ORM
+                           │
+                           ▼
+                        SQLite
 ```
 
-API will be available at `http://127.0.0.1:8000`
-Interactive docs at `http://127.0.0.1:8000/docs`
+---
 
-## Key API Endpoints
+# Project Structure
+
+```text
+lecturemerger-api/
+
+├── routers/
+│   ├── recordings.py
+│   └── merge_sessions.py
+│
+├── services/
+│   ├── transcription.py
+│   ├── pdf_parser.py
+│   └── matcher.py
+│
+├── models.py
+├── schemas.py
+├── database.py
+├── dependencies.py
+└── main.py
+```
+
+---
+
+# Database Design
+
+The application uses five core tables.
+
+```
+Recording
+    │
+    ├──────────────┐
+    ▼              ▼
+TranscriptChunk   MergeSession
+                       │
+                       ▼
+                  PdfSection
+                       │
+                       ▼
+                  AttachedItem
+```
+
+### recordings
+
+Stores uploaded lecture recordings.
+
+### transcript_chunks
+
+Stores timestamped transcript segments generated by Whisper.
+
+### merge_sessions
+
+Represents a merge between one recording and one uploaded PDF.
+
+### pdf_sections
+
+Stores extracted lecture slide sections.
+
+### attached_items
+
+Stores transcript chunks attached to PDF sections during semantic matching.
+
+---
+
+# API Endpoints
+
+## Recordings
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/recordings/` | Upload audio, triggers background transcription |
-| GET | `/recordings/{id}` | Check transcription status |
-| GET | `/recordings/{id}/chunks` | Get timestamped transcript chunks |
-| POST | `/merge-sessions/` | Upload PDF and create merge session |
+|---------|----------|-------------|
+| POST | `/recordings/` | Upload audio recording |
+| GET | `/recordings/` | List recordings |
+| GET | `/recordings/{id}` | Get recording |
+| GET | `/recordings/{id}/chunks` | Transcript chunks |
+
+---
+
+## Merge Sessions
+
+| Method | Endpoint | Description |
+|---------|----------|-------------|
+| POST | `/merge-sessions/` | Upload PDF |
 | POST | `/merge-sessions/{id}/match` | Run semantic matching |
-| GET | `/merge-sessions/{id}/sections` | Get parsed PDF sections |
+| GET | `/merge-sessions/{id}/sections` | PDF sections |
 
-## Notes
+---
 
-- First run downloads Whisper and sentence-transformer models (~300MB total, cached after first use)
-- Transcription speed depends on audio length and hardware — CPU transcription takes roughly 3-5x audio duration
-- The `base` or `small` Whisper model is recommended for production use; `tiny` is faster but less accurate
-- **scikit-learn** — cosine similarity computation
+# Engineering Decisions
 
-## Project Structure
+## Background Transcription
+
+Transcription runs as a FastAPI background task.
+
+This allows uploads to return immediately instead of forcing users to wait for long-running transcription jobs.
+
+---
+
+## Semantic Matching
+
+Keyword matching performs poorly because lecturers often explain concepts without repeating the exact slide wording.
+
+Instead, LectureMerge generates sentence embeddings for:
+
+- transcript chunks
+- PDF sections
+
+Cosine similarity is then used to determine the most relevant destination section.
+
+---
+
+## SQLAlchemy ORM
+
+SQLAlchemy separates persistence logic from API endpoints and allows future migration from SQLite to PostgreSQL with minimal changes.
+
+---
+
+# Setup
+
+Clone the repository.
+
+```bash
+git clone https://github.com/LolaVictoria/lecturemerger-api.git
+
+cd lecturemerger-api
+```
+
+Create a virtual environment.
+
+```bash
+python -m venv venv
+```
+
+Activate it.
+
+Windows
+
+```bash
+venv\Scripts\activate
+```
+
+Mac/Linux
+
+```bash
+source venv/bin/activate
+```
+
+Install dependencies.
+
+```bash
+pip install -r requirements.txt
+```
+
+Run the server.
+
+```bash
+uvicorn main:app --reload
+```
+
+Swagger documentation is available at
+
+```
+http://127.0.0.1:8000/docs
+```
+
+---
+
+# Current Limitations
+
+The application currently loads both Whisper and SentenceTransformer directly inside the FastAPI process.
+
+These models exceed the **512 MB memory limit** of Render's free tier.
+
+For production deployment this workload would be moved to:
+
+- dedicated background workers
+- GPU inference services
+- object storage for uploaded files
+
+while keeping the API lightweight.
+
+---
+
+# Future Improvements
+
+- PostgreSQL
+- Docker
+- Redis
+- Celery background workers
+- Authentication
+- Object storage
+- GPU inference
+- Better confidence calibration
+- Automatic merged PDF generation
+
+---
+
+# License
+
+MIT License.
